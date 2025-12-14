@@ -1,24 +1,45 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import "react-native-reanimated";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { createMatchesTable } from "@/database/models/Match";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import React, { useEffect, useState } from "react";
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
 export default function RootLayout() {
+  const [databaseLoaded, setDatabaseLoaded] = useState(false);
   const colorScheme = useColorScheme();
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+  useEffect(() => {
+    createOrLoadDatabase();
+  }, []);
+
+  const createOrLoadDatabase = async () => {
+    await createMatchesTable();
+    setDatabaseLoaded(true);
+  };
+
+  return databaseLoaded ? (
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen
+          name="modal"
+          options={{ presentation: "modal", title: "Registrar partido" }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
+  ) : (
+    <></>
   );
 }
