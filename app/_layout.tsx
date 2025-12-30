@@ -8,6 +8,8 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
 import { createMatchesTable } from "@/database/models/Match";
+import { createStagesTable } from "@/database/models/Stage";
+import { createWorldcupTable } from "@/database/models/Worldcup";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import React, { useEffect, useState } from "react";
 
@@ -25,6 +27,8 @@ export default function RootLayout() {
 
   const createOrLoadDatabase = async () => {
     await createMatchesTable();
+    await createWorldcupTable();
+    await createStagesTable();
     setDatabaseLoaded(true);
   };
 

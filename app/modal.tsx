@@ -1,17 +1,66 @@
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
 import { getDB } from "@/database/db";
+import { Match } from "@/interfaces/match";
+import { Stage } from "@/interfaces/worldcupMatch";
 import { Link } from "expo-router";
-import { useState } from "react";
-import {
-  Pressable,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ArrowLeft, Save, Shirt, Target, Users } from "lucide-react-native";
+import React, { useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-const resultValues = [
+const MINIMUM_POINTS_TO_CLASIFY = 4;
+
+export function getNextWorldCupStage(
+  lastWorldcupMatch: Match | null,
+  lastMatches: Match[]
+): Stage {
+  if (!lastWorldcupMatch || !lastWorldcupMatch.stage_id) return Stage.GROUP_1;
+  if (lastWorldcupMatch.stage_id === Stage.GROUP_3) {
+    const points = lastMatches.reduce((total, match) => {
+      switch (match.result) {
+        case "w":
+          return total + 3;
+        case "d":
+          return total + 1;
+        case "l":
+          return total;
+      }
+    }, 0);
+
+    if (points >= MINIMUM_POINTS_TO_CLASIFY) {
+      return Stage.ROUND_OF_16;
+    }
+
+    return Stage.GROUP_1;
+  }
+
+  return changeStage(lastWorldcupMatch.stage_id, lastWorldcupMatch.result);
+}
+
+function changeStage(stage: Stage, result: Match["result"]): Stage {
+  switch (stage) {
+    case Stage.GROUP_1:
+      return Stage.GROUP_2;
+    case Stage.GROUP_2:
+      return Stage.GROUP_3;
+    case Stage.GROUP_3:
+      return Stage.ROUND_OF_16;
+    case Stage.ROUND_OF_16:
+      return result === "w" || (result === "d" && Math.random() > 0.5)
+        ? Stage.QUARTER_FINAL
+        : Stage.GROUP_1;
+    case Stage.QUARTER_FINAL:
+      return result === "w" || (result === "d" && Math.random() > 0.5)
+        ? Stage.SEMI_FINAL
+        : Stage.GROUP_1;
+    case Stage.SEMI_FINAL:
+      return result === "w" || (result === "d" && Math.random() > 0.5)
+        ? Stage.FINAL
+        : Stage.GROUP_1;
+    default:
+      return Stage.GROUP_1;
+  }
+}
+
+const resultValues: { value: Match["result"]; label: string }[] = [
   {
     value: "w",
     label: "Ganado",
@@ -19,7 +68,7 @@ const resultValues = [
   { value: "d", label: "Empatado" },
   { value: "l", label: "Perdido" },
 ];
-const shirtValues = [
+const shirtValues: { value: Match["shirt"]; label: string }[] = [
   {
     value: "black",
     label: "Negra",
@@ -28,173 +77,310 @@ const shirtValues = [
 ];
 
 export default function ModalScreen() {
-  const [selectedResult, setSelectedResult] = useState("w");
-  const [shirt, setShirt] = useState<string | null>(null);
+  const [result, setResult] = useState<Match["result"]>("w");
   const [goals, setGoals] = useState(0);
   const [asists, setAsists] = useState(0);
+  const [shirt, setShirt] = useState<Match["shirt"] | null>(null);
   const [registering, setRegistering] = useState(false);
 
-  const getButtonStyle = (selected: boolean, index: number, total: number) => {
-    let style = styles.resultButtonDefault;
-    if (index === 0) {
-      style = { ...style, ...styles.resultButtonFirst };
-    }
-    if (index === total - 1) {
-      style = { ...style, ...styles.resultButtonLast };
-    }
-    return selected ? { ...style, ...styles.resultButtonSelected } : style;
+  const handleSubmit = () => {
+    registerMatch();
   };
 
   const registerMatch = async () => {
     setRegistering(true);
     const db = await getDB();
-    await db.runAsync(
-      `INSERT INTO matches (
-        result, goals, asists, shirt
-      ) VALUES (?, ?, ?, ?)`,
-      [selectedResult, goals, asists, shirt]
-    );
+    const worldcupMatches: any = await db.getAllAsync<Match>(`
+      SELECT m.*
+      FROM matches m
+      WHERE m.worldcup_id = (
+        SELECT id
+        FROM worldcup
+        ORDER BY updated_at DESC
+        LIMIT 1
+      )
+    `);
+    const stage = getNextWorldCupStage(worldcupMatches[0], worldcupMatches);
+    if (worldcupMatches.length === 0) {
+      const worldcupInserted = await db.runAsync(
+        `INSERT INTO worldcup (
+          stage
+          ) VALUES (?)`,
+        [stage]
+      );
+      await db.runAsync(
+        `INSERT INTO matches (
+          result, goals, asists, shirt, worldcup_id, stage_id
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        [result, goals, asists, shirt, worldcupInserted.lastInsertRowId, stage]
+      );
+    } else {
+      await db.runAsync(
+        `INSERT INTO matches (
+          result, goals, asists, shirt, worldcup_id, stage_id
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        [result, goals, asists, shirt, worldcupMatches[0].worldcup_id, stage]
+      );
+      await db.runAsync(
+        `UPDATE worldcup
+          SET stage = ?, updated_at = strftime('%s','now')
+          WHERE id = ?;
+        `,
+        [stage, worldcupMatches[0].worldcup_id]
+      );
+    }
     setRegistering(false);
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedView>
-        <ThemedText>Resultado</ThemedText>
-        <View style={styles.resultButtonsContainer}>
-          {resultValues.map(({ value, label }, index) => (
-            <TouchableOpacity
-              key={`result-button-${value}`}
-              style={getButtonStyle(
-                selectedResult === value,
-                index,
-                resultValues.length
-              )}
-              onPress={() => setSelectedResult(value)}
-              accessibilityRole="button"
+    <View style={styles.container}>
+      {/* Resultado */}
+      <View style={styles.section}>
+        <Text style={styles.label}>Resultado</Text>
+
+        <View style={styles.grid3}>
+          {resultValues.map(({ value, label }) => (
+            <Pressable
+              key={value}
+              onPress={() => setResult(value)}
+              style={[
+                styles.optionButton,
+                result === value && styles[`result_${value}`],
+              ]}
             >
-              <ThemedText>{label}</ThemedText>
-            </TouchableOpacity>
+              <Text
+                style={[
+                  styles.optionText,
+                  result === value && styles.optionTextActive,
+                ]}
+              >
+                {label.charAt(0).toUpperCase() + label.slice(1)}
+              </Text>
+            </Pressable>
           ))}
         </View>
-      </ThemedView>
-      <ThemedView style={{ flexDirection: "row", gap: 16 }}>
-        <ThemedView>
-          <ThemedText>Goles</ThemedText>
+      </View>
+
+      {/* Goles */}
+      <View style={styles.section}>
+        <Text style={styles.label}>Goles</Text>
+
+        <View style={styles.inputWrapper}>
+          <View style={[styles.iconBox, styles.accentBg]}>
+            <Target size={20} color={colors.accent} />
+          </View>
+
           <TextInput
-            style={styles.input}
-            value={goals.toString()}
-            onChange={(text) => {
-              const number = Number(text.nativeEvent.text);
-              if (!isNaN(number) && number >= 0 && number < 100) {
-                setGoals(number);
-              }
-            }}
             keyboardType="numeric"
+            value={String(goals)}
+            onChangeText={(v) => {
+              if (Number(v) > 100) return;
+              setGoals(Number(v) || 0);
+            }}
+            style={styles.input}
           />
-        </ThemedView>
-        <ThemedView>
-          <ThemedText>Asistencias</ThemedText>
+        </View>
+      </View>
+
+      {/* Asistencias */}
+      <View style={styles.section}>
+        <Text style={styles.label}>Asistencias</Text>
+
+        <View style={styles.inputWrapper}>
+          <View style={[styles.iconBox, styles.primaryBg]}>
+            <Users size={20} color={colors.primary} />
+          </View>
+
           <TextInput
-            style={styles.input}
-            value={asists.toString()}
-            onChange={(text) => {
-              const number = Number(text.nativeEvent.text);
-              if (!isNaN(number) && number >= 0 && number < 100) {
-                setAsists(number);
-              }
-            }}
             keyboardType="numeric"
+            value={String(asists)}
+            onChangeText={(v) => {
+              if (Number(v) > 100) return;
+              setAsists(Number(v) || 0);
+            }}
+            style={styles.input}
           />
-        </ThemedView>
-      </ThemedView>
-      <ThemedView>
-        <ThemedText>Camiseta</ThemedText>
-        <View style={styles.shirtButtonsContainer}>
-          {shirtValues.map(({ value, label }, index) => (
-            <TouchableOpacity
-              key={`shirt-button-${value}`}
-              style={getButtonStyle(shirt === value, index, shirtValues.length)}
-              onPress={() => setShirt(value === shirt ? null : value)}
-              accessibilityRole="button"
+        </View>
+      </View>
+
+      {/* Camiseta */}
+      <View style={styles.section}>
+        <Text style={styles.label}>Camiseta</Text>
+
+        <View style={styles.grid2}>
+          {shirtValues.map(({ value, label }) => (
+            <Pressable
+              key={value}
+              onPress={() => setShirt(value !== shirt ? value : null)}
+              style={[
+                styles.optionButton,
+                shirt === value && styles.jerseyActive,
+              ]}
             >
-              <ThemedText>{label}</ThemedText>
-            </TouchableOpacity>
+              <View style={styles.row}>
+                <Shirt size={20} color={"#FFFFFF"} />
+                <Text style={styles.optionText}>
+                  {label.charAt(0).toUpperCase() + label.slice(1)}
+                </Text>
+              </View>
+            </Pressable>
           ))}
         </View>
-      </ThemedView>
-      <ThemedView style={styles.submitContainer}>
+      </View>
+
+      {/* Acciones */}
+      <View style={styles.actions}>
+        <Link href="/" dismissTo disabled={registering}>
+          <View style={styles.secondaryButton}>
+            <ArrowLeft size={20} />
+            <Text style={styles.buttonText}>Volver</Text>
+          </View>
+        </Link>
+
         <Pressable
-          style={styles.register}
-          onPress={registerMatch}
+          style={[styles.primaryButton, registering && styles.disabled]}
+          onPress={handleSubmit}
           disabled={registering}
         >
-          <ThemedText>Registrar</ThemedText>
+          <Save size={20} color="#fff" />
+          <Text style={styles.primaryButtonText}>Registrar</Text>
         </Pressable>
-        <Link href="/" dismissTo style={styles.link} disabled={registering}>
-          <ThemedText type="link" style={styles.linkText}>
-            Go to home screen
-          </ThemedText>
-        </Link>
-      </ThemedView>
-    </ThemedView>
+      </View>
+    </View>
   );
 }
 
+const colors = {
+  background: "#0f0f0f",
+  card: "#1c1c1c",
+  border: "#2a2a2a",
+  foreground: "#e5e7eb",
+  muted: "#9ca3af",
+  primary: "#3b82f6",
+  accent: "#a855f7",
+  success: "#22c55e",
+  warning: "#eab308",
+  danger: "#ef4444",
+};
+
 const styles = StyleSheet.create({
   container: {
+    padding: 25,
+    gap: 24,
+  },
+  section: {
+    gap: 12,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    color: colors.foreground,
+  },
+  grid3: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  grid2: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  optionButton: {
     flex: 1,
-    gap: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+  },
+  optionText: {
+    fontWeight: "600",
+    color: colors.foreground,
+  },
+  optionTextActive: {
+    color: "#fff",
+  },
+
+  result_w: { backgroundColor: colors.success },
+  result_d: { backgroundColor: colors.warning },
+  result_l: { backgroundColor: colors.danger },
+
+  inputWrapper: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  iconBox: {
+    position: "absolute",
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
-    paddingHorizontal: "10%",
   },
-  link: {
-    paddingVertical: 15,
-  },
-  linkText: {
-    color: "#e504e5ff",
-    fontWeight: "bold",
-  },
-  resultButtonsContainer: { flexDirection: "row" },
-  resultButtonDefault: {
-    borderColor: "#e504e5ff",
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  resultButtonSelected: {
-    backgroundColor: "#e504e5ff",
-  },
-  resultButtonFirst: {
-    borderTopLeftRadius: 8,
-    borderBottomLeftRadius: 8,
-  },
-  resultButtonMid: {},
-  resultButtonLast: {
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
-  },
+  accentBg: { backgroundColor: "rgba(168,85,247,0.1)" },
+  primaryBg: { backgroundColor: "rgba(59,130,246,0.1)" },
+
   input: {
-    color: "#FFFFFF",
-    borderColor: "#e504e5ff",
+    paddingLeft: 72,
+    paddingVertical: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 8,
-    borderRadius: 8,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.foreground,
   },
-  shirtButtonsContainer: {
+
+  row: {
     flexDirection: "row",
-  },
-  submitContainer: {
-    gap: 20,
-    marginTop: 50,
-  },
-  register: {
-    backgroundColor: "#e504e5ff",
     alignItems: "center",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: 8,
+  },
+
+  jerseyActive: {
+    borderWidth: 2,
+    borderColor: colors.foreground,
+  },
+
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+    paddingTop: 16,
+  },
+  secondaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  primaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  buttonText: {
+    fontWeight: "600",
+    color: colors.foreground,
+  },
+  primaryButtonText: {
+    fontWeight: "600",
+    color: "#fff",
   },
 });

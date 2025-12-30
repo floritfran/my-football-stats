@@ -7,15 +7,19 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MatchCard } from "@/components/ui/match-card";
 import { getDB } from "@/database/db";
+import { Match } from "@/interfaces/match";
+import { Worldcup } from "@/interfaces/worldcupMatch";
 import { Link } from "expo-router";
 import { useEffect, useState } from "react";
 
 export default function HomeScreen() {
-  const [matches, setMatches] = useState([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [actualWorldcup, setActualWorldcup] = useState<Worldcup | null>(null);
   const lastMatches = matches.slice(0, 5);
 
   useEffect(() => {
     loadMatches();
+    loadActualWorldcup();
   }, []);
 
   const loadMatches = async () => {
@@ -26,7 +30,15 @@ export default function HomeScreen() {
     setMatches(matchesDb);
   };
 
-  const getLastMatchesGoals = (matchesGoals) => {
+  const loadActualWorldcup = async () => {
+    const db = await getDB();
+    const actualWorldcupDb: any = await db.getFirstAsync<Worldcup>(
+      `SELECT * FROM worldcup ORDER BY updated_at DESC`
+    );
+    setActualWorldcup(actualWorldcupDb);
+  };
+
+  const getLastMatchesGoals = (matchesGoals: Match[]) => {
     let goals = 0;
     for (let match of matchesGoals) {
       goals += match.goals;
@@ -34,7 +46,7 @@ export default function HomeScreen() {
     return goals;
   };
 
-  const getLastMatchesAsists = (matchesAsist) => {
+  const getLastMatchesAsists = (matchesAsist: Match[]) => {
     let asists = 0;
     for (let match of matchesAsist) {
       asists += match.asists;
@@ -55,7 +67,15 @@ export default function HomeScreen() {
       >
         <ThemedView style={styles.titleContainer}>
           <ThemedText type="title">My Football Stats</ThemedText>
-          <ThemedText>Últimos 5 partidos</ThemedText>
+          {actualWorldcup && (
+            <>
+              <ThemedText type="subtitle">Fase actual de mundial</ThemedText>
+              <ThemedView style={styles.lastMatchesContainer}>
+                <ThemedText>{actualWorldcup.stage}</ThemedText>
+              </ThemedView>
+            </>
+          )}
+          <ThemedText type="subtitle">Últimos 5 partidos</ThemedText>
           <ThemedView style={styles.lastMatchesContainer}>
             <ThemedView style={styles.lastMatchesItem}>
               <ThemedText style={styles.lastMatchesNumber}>
@@ -89,8 +109,8 @@ export default function HomeScreen() {
             </ThemedView>
           </ThemedView>
           <ThemedView style={{ width: "100%", gap: 15 }}>
-            {matches.slice(0, 5).map((match) => (
-              <MatchCard match={match} />
+            {matches.slice(0, 5).map((match, index) => (
+              <MatchCard match={match} key={`match-${index}`} />
             ))}
           </ThemedView>
         </ThemedView>

@@ -1,3 +1,4 @@
+import { Match } from "@/interfaces/match";
 import {
   Minus,
   Target,
@@ -7,15 +8,6 @@ import {
 } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 import { ThemedText } from "../themed-text";
-
-type Match = {
-  id: number;
-  result: "w" | "l" | "d";
-  date: number;
-  goals: number;
-  assists: number;
-  shirt: "black" | "white";
-};
 
 type MatchCardProps = {
   match: Match;
@@ -61,15 +53,17 @@ export function MatchCard({ match }: MatchCardProps) {
 
   return (
     <View style={[styles.card, styles[`card_${match.result}`]]}>
-      <View style={[styles.badge, styles[`badge_${match.result}`]]}>
-        <Icon color={"#FFFFFF"} />
-        <ThemedText
-          style={[styles.badgeText, styles[`badgeText_${match.result}`]]}
-        >
-          {config.label}
-        </ThemedText>
+      <View style={styles.header}>
+        <View style={[styles.badge, styles[`badge_${match.result}`]]}>
+          <Icon color={"#FFFFFF"} />
+          <ThemedText
+            style={[styles.badgeText, styles[`badgeText_${match.result}`]]}
+          >
+            {config.label}
+          </ThemedText>
+        </View>
+        <ThemedText style={styles.date}>{formatDate(match.date)}</ThemedText>
       </View>
-      <ThemedText style={styles.date}>{formatDate(match.date)}</ThemedText>
       <View
         style={{
           flexDirection: "row",
@@ -101,6 +95,11 @@ export function MatchCard({ match }: MatchCardProps) {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   card: {
     width: "100%",
     borderRadius: 16,
