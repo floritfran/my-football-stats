@@ -22,6 +22,7 @@ const MAPPING = {
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",
   "chart.bar": "bar-chart",
+  soccerball: "sports-soccer",
 } as IconMapping;
 
 /**

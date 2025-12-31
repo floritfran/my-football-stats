@@ -1,64 +1,11 @@
 import { getDB } from "@/database/db";
 import { Match } from "@/interfaces/match";
-import { Stage } from "@/interfaces/worldcupMatch";
+import { StageId } from "@/interfaces/worldcupMatch";
+import { getNextWorldCupStage } from "@/utils/worldcup";
 import { Link } from "expo-router";
 import { ArrowLeft, Save, Shirt, Target, Users } from "lucide-react-native";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-
-const MINIMUM_POINTS_TO_CLASIFY = 4;
-
-export function getNextWorldCupStage(
-  lastWorldcupMatch: Match | null,
-  lastMatches: Match[]
-): Stage {
-  if (!lastWorldcupMatch || !lastWorldcupMatch.stage_id) return Stage.GROUP_1;
-  if (lastWorldcupMatch.stage_id === Stage.GROUP_3) {
-    const points = lastMatches.reduce((total, match) => {
-      switch (match.result) {
-        case "w":
-          return total + 3;
-        case "d":
-          return total + 1;
-        case "l":
-          return total;
-      }
-    }, 0);
-
-    if (points >= MINIMUM_POINTS_TO_CLASIFY) {
-      return Stage.ROUND_OF_16;
-    }
-
-    return Stage.GROUP_1;
-  }
-
-  return changeStage(lastWorldcupMatch.stage_id, lastWorldcupMatch.result);
-}
-
-function changeStage(stage: Stage, result: Match["result"]): Stage {
-  switch (stage) {
-    case Stage.GROUP_1:
-      return Stage.GROUP_2;
-    case Stage.GROUP_2:
-      return Stage.GROUP_3;
-    case Stage.GROUP_3:
-      return Stage.ROUND_OF_16;
-    case Stage.ROUND_OF_16:
-      return result === "w" || (result === "d" && Math.random() > 0.5)
-        ? Stage.QUARTER_FINAL
-        : Stage.GROUP_1;
-    case Stage.QUARTER_FINAL:
-      return result === "w" || (result === "d" && Math.random() > 0.5)
-        ? Stage.SEMI_FINAL
-        : Stage.GROUP_1;
-    case Stage.SEMI_FINAL:
-      return result === "w" || (result === "d" && Math.random() > 0.5)
-        ? Stage.FINAL
-        : Stage.GROUP_1;
-    default:
-      return Stage.GROUP_1;
-  }
-}
 
 const resultValues: { value: Match["result"]; label: string }[] = [
   {
@@ -83,14 +30,11 @@ export default function ModalScreen() {
   const [shirt, setShirt] = useState<Match["shirt"] | null>(null);
   const [registering, setRegistering] = useState(false);
 
-  const handleSubmit = () => {
-    registerMatch();
-  };
-
   const registerMatch = async () => {
     setRegistering(true);
     const db = await getDB();
-    const worldcupMatches: any = await db.getAllAsync<Match>(`
+    const worldcupMatches: any = await db.getAllAsync<Match>(
+      `
       SELECT m.*
       FROM matches m
       WHERE m.worldcup_id = (
@@ -98,35 +42,47 @@ export default function ModalScreen() {
         FROM worldcup
         ORDER BY updated_at DESC
         LIMIT 1
-      )
-    `);
-    const stage = getNextWorldCupStage(worldcupMatches[0], worldcupMatches);
-    if (worldcupMatches.length === 0) {
+      ) AND m.stage_id IS NOT NULL
+      ORDER BY m.date DESC
+    `
+    );
+    const { id: stage_id } = getNextWorldCupStage(
+      worldcupMatches[0],
+      worldcupMatches
+    );
+    if (stage_id === StageId.GROUP_1) {
       const worldcupInserted = await db.runAsync(
         `INSERT INTO worldcup (
           stage
           ) VALUES (?)`,
-        [stage]
+        [stage_id]
       );
       await db.runAsync(
         `INSERT INTO matches (
           result, goals, asists, shirt, worldcup_id, stage_id
         ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [result, goals, asists, shirt, worldcupInserted.lastInsertRowId, stage]
+        [
+          result,
+          goals,
+          asists,
+          shirt,
+          worldcupInserted.lastInsertRowId,
+          stage_id,
+        ]
       );
     } else {
       await db.runAsync(
         `INSERT INTO matches (
           result, goals, asists, shirt, worldcup_id, stage_id
         ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [result, goals, asists, shirt, worldcupMatches[0].worldcup_id, stage]
+        [result, goals, asists, shirt, worldcupMatches[0].worldcup_id, stage_id]
       );
       await db.runAsync(
         `UPDATE worldcup
           SET stage = ?, updated_at = strftime('%s','now')
           WHERE id = ?;
         `,
-        [stage, worldcupMatches[0].worldcup_id]
+        [stage_id, worldcupMatches[0].worldcup_id]
       );
     }
     setRegistering(false);
@@ -239,7 +195,7 @@ export default function ModalScreen() {
 
         <Pressable
           style={[styles.primaryButton, registering && styles.disabled]}
-          onPress={handleSubmit}
+          onPress={() => registerMatch()}
           disabled={registering}
         >
           <Save size={20} color="#fff" />

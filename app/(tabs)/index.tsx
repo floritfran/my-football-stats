@@ -1,20 +1,21 @@
-import { Image } from "expo-image";
 import { Plus } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
 import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MatchCard } from "@/components/ui/match-card";
 import { getDB } from "@/database/db";
 import { Match } from "@/interfaces/match";
-import { Worldcup } from "@/interfaces/worldcupMatch";
+import { Stage } from "@/interfaces/worldcupMatch";
+import { getNextWorldCupStage } from "@/utils/worldcup";
 import { Link } from "expo-router";
 import { useEffect, useState } from "react";
 
 export default function HomeScreen() {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [actualWorldcup, setActualWorldcup] = useState<Worldcup | null>(null);
+  const [nextStage, setNextStage] = useState<Stage>();
   const lastMatches = matches.slice(0, 5);
 
   useEffect(() => {
@@ -32,10 +33,19 @@ export default function HomeScreen() {
 
   const loadActualWorldcup = async () => {
     const db = await getDB();
-    const actualWorldcupDb: any = await db.getFirstAsync<Worldcup>(
-      `SELECT * FROM worldcup ORDER BY updated_at DESC`
-    );
-    setActualWorldcup(actualWorldcupDb);
+    const worldcupMatchesDB: any = await db.getAllAsync<Match>(`
+      SELECT m.*
+      FROM matches m
+      WHERE m.worldcup_id = (
+        SELECT id
+        FROM worldcup
+        ORDER BY updated_at DESC
+        LIMIT 1
+      ) AND m.stage_id IS NOT NULL
+      ORDER BY m.date DESC
+    `);
+    const stage = getNextWorldCupStage(worldcupMatchesDB[0], worldcupMatchesDB);
+    setNextStage(stage);
   };
 
   const getLastMatchesGoals = (matchesGoals: Match[]) => {
@@ -59,22 +69,24 @@ export default function HomeScreen() {
       <ParallaxScrollView
         headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
         headerImage={
-          <Image
-            source={require("@/assets/images/partial-react-logo.png")}
-            style={styles.reactLogo}
+          <IconSymbol
+            style={styles.headerImage}
+            size={310}
+            color="#c6d3e0ff"
+            name="soccerball"
           />
         }
       >
         <ThemedView style={styles.titleContainer}>
-          <ThemedText type="title">My Football Stats</ThemedText>
-          {actualWorldcup && (
-            <>
-              <ThemedText type="subtitle">Fase actual de mundial</ThemedText>
-              <ThemedView style={styles.lastMatchesContainer}>
-                <ThemedText>{actualWorldcup.stage}</ThemedText>
-              </ThemedView>
-            </>
-          )}
+          <ThemedText type="title" style={styles.title}>
+            My Football Stats
+          </ThemedText>
+          <ThemedText type="subtitle">Fase actual de mundial</ThemedText>
+          <ThemedView style={styles.actualStageContainer}>
+            <ThemedText style={styles.actualStageText}>
+              {nextStage?.name ?? "No hay fase de mundial"}
+            </ThemedText>
+          </ThemedView>
           <ThemedText type="subtitle">Últimos 5 partidos</ThemedText>
           <ThemedView style={styles.lastMatchesContainer}>
             <ThemedView style={styles.lastMatchesItem}>
@@ -125,13 +137,27 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerImage: { backgroundColor: "#015369ff" },
   titleContainer: {
     alignItems: "center",
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    marginBottom: 16,
+  },
+  actualStageContainer: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#0d5500ff",
+    backgroundColor: "#22C55E22",
+    width: "95%",
+    marginBottom: 16,
+  },
+  actualStageText: {
+    fontSize: 24,
+    textAlign: "center",
+    fontWeight: "700",
   },
   reactLogo: {
     height: 178,

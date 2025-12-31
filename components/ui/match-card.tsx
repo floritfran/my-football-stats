@@ -124,8 +124,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -133,11 +131,13 @@ const styles = StyleSheet.create({
   total: {
     fontSize: 20,
     fontWeight: "700",
+    textAlign: "center",
     backgroundColor: "none",
     color: "#E5E7EB",
   },
   totalText: {
     fontSize: 12,
+    textAlign: "center",
     color: "#9CA3AF",
     textTransform: "uppercase",
     letterSpacing: 0.8,

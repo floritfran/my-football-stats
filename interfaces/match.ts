@@ -1,4 +1,4 @@
-import { Stage } from "./worldcupMatch";
+import { StageId } from "./worldcupMatch";
 
 export interface Match {
   id: number;
@@ -8,5 +8,5 @@ export interface Match {
   asists: number;
   shirt: "black" | "white";
   worldcup_id?: number;
-  stage_id?: Stage;
+  stage_id?: StageId;
 }

@@ -5,6 +5,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { StatCard } from "@/components/ui/stat-card";
 import { getDB } from "@/database/db";
 import { Match } from "@/interfaces/match";
+import { getStageNameById } from "@/utils/worldcup";
 import { useEffect, useState } from "react";
 
 const getEffectivityValue = (result: Match["result"]) => {
@@ -39,6 +40,14 @@ export default function StatsScreen() {
         ) /
         (3 * whiteMatches.length)
       : 0;
+  const bestWorldCupStage = getStageNameById(
+    matches.sort((a, b) => {
+      return (b.stage_id || 0) - (a.stage_id || 0);
+    })[0]?.stage_id
+  );
+  const worldcupsWon = matches.filter(
+    (m) => m.stage_id === 7 && m.result === "w"
+  ).length;
 
   useEffect(() => {
     loadStats();
@@ -61,10 +70,10 @@ export default function StatsScreen() {
       headerBackgroundColor={{ light: "#D0D0D0", dark: "#353636" }}
       headerImage={
         <IconSymbol
-          size={310}
-          color="#c7cd0fff"
-          name="chart.bar"
           style={styles.headerImage}
+          size={310}
+          color="#f3f870ff"
+          name="chart.bar"
         />
       }
     >
@@ -94,17 +103,14 @@ export default function StatsScreen() {
         title={"Efectividad camiseta blanca"}
         value={`${(whiteMatchesEffectivity * 100).toFixed(1)}%`}
       />
+      <StatCard title={"Mundiales ganados"} value={worldcupsWon} />
+      <StatCard title={"Mejor puesto en mundial"} value={bestWorldCupStage} />
     </ParallaxScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: "#808080",
-    bottom: -90,
-    left: -35,
-    position: "absolute",
-  },
+  headerImage: { backgroundColor: "#575a01ff" },
   titleContainer: {
     flexDirection: "row",
     gap: 8,
