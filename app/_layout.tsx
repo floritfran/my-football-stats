@@ -7,6 +7,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { ToastProvider } from "@/components/toast-context";
 import { createMatchesTable } from "@/database/models/Match";
 import { createStagesTable } from "@/database/models/Stage";
 import { createWorldcupTable } from "@/database/models/Worldcup";
@@ -34,14 +35,16 @@ export default function RootLayout() {
 
   return databaseLoaded ? (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: "modal", title: "Registrar partido" }}
-        />
-      </Stack>
-      <StatusBar style="auto" />
+      <ToastProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="modal"
+            options={{ presentation: "modal", title: "Registrar partido" }}
+          />
+        </Stack>
+        <StatusBar style="auto" />
+      </ToastProvider>
     </ThemeProvider>
   ) : (
     <></>

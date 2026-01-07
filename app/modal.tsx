@@ -1,3 +1,4 @@
+import { useToast } from "@/components/toast-context";
 import { getDB } from "@/database/db";
 import { Match } from "@/interfaces/match";
 import { StageId } from "@/interfaces/worldcupMatch";
@@ -5,14 +6,7 @@ import { getNextWorldCupStage } from "@/utils/worldcup";
 import { Link, useRouter } from "expo-router";
 import { ArrowLeft, Save, Shirt, Target, Users } from "lucide-react-native";
 import React, { useState } from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  ToastAndroid,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 const resultValues: { value: Match["result"]; label: string }[] = [
   {
@@ -37,6 +31,7 @@ export default function ModalScreen() {
   const [asists, setAsists] = useState(0);
   const [shirt, setShirt] = useState<Match["shirt"] | null>(null);
   const [registering, setRegistering] = useState(false);
+  const { showToast } = useToast();
 
   const registerMatch = async () => {
     setRegistering(true);
@@ -95,7 +90,7 @@ export default function ModalScreen() {
     }
     setRegistering(false);
     router.push("/");
-    ToastAndroid.show("Registrado correctamente", ToastAndroid.LONG);
+    showToast("Registrado correctamente");
   };
 
   return (
