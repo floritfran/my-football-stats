@@ -2,10 +2,17 @@ import { getDB } from "@/database/db";
 import { Match } from "@/interfaces/match";
 import { StageId } from "@/interfaces/worldcupMatch";
 import { getNextWorldCupStage } from "@/utils/worldcup";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { ArrowLeft, Save, Shirt, Target, Users } from "lucide-react-native";
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  View,
+} from "react-native";
 
 const resultValues: { value: Match["result"]; label: string }[] = [
   {
@@ -24,6 +31,7 @@ const shirtValues: { value: Match["shirt"]; label: string }[] = [
 ];
 
 export default function ModalScreen() {
+  const router = useRouter();
   const [result, setResult] = useState<Match["result"]>("w");
   const [goals, setGoals] = useState(0);
   const [asists, setAsists] = useState(0);
@@ -86,6 +94,8 @@ export default function ModalScreen() {
       );
     }
     setRegistering(false);
+    router.push("/");
+    ToastAndroid.show("Registrado correctamente", ToastAndroid.LONG);
   };
 
   return (
@@ -186,9 +196,14 @@ export default function ModalScreen() {
 
       {/* Acciones */}
       <View style={styles.actions}>
-        <Link href="/" dismissTo disabled={registering}>
+        <Link
+          href="/"
+          dismissTo
+          disabled={registering}
+          style={styles.secondaryButtonContainer}
+        >
           <View style={styles.secondaryButton}>
-            <ArrowLeft size={20} />
+            <ArrowLeft size={20} color={"#ffffff"} />
             <Text style={styles.buttonText}>Volver</Text>
           </View>
         </Link>
@@ -307,19 +322,20 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingTop: 16,
   },
+  secondaryButtonContainer: { flex: 1 },
   secondaryButton: {
-    flex: 1,
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 16,
+    paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
   primaryButton: {
-    flex: 1,
+    flex: 2,
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
