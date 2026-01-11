@@ -1,9 +1,7 @@
 import { useToast } from "@/components/toast-context";
 import { getDB } from "@/database/db";
 import { Match } from "@/interfaces/match";
-import { StageId } from "@/interfaces/worldcupMatch";
-import { getNextWorldCupStage } from "@/utils/worldcup";
-import { Link, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Save, Shirt, Target, Users } from "lucide-react-native";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -24,71 +22,34 @@ const shirtValues: { value: Match["shirt"]; label: string }[] = [
   { value: "white", label: "Blanca" },
 ];
 
-export default function ModalScreen() {
+interface EditMatchScreenProps {
+  match: Match;
+}
+
+export default function EditMatchScreen() {
+  const { match } = useLocalSearchParams();
+  const matchParsed: Match = JSON.parse(match as string);
   const router = useRouter();
-  const [result, setResult] = useState<Match["result"]>("w");
-  const [goals, setGoals] = useState(0);
-  const [asists, setAsists] = useState(0);
-  const [shirt, setShirt] = useState<Match["shirt"] | null>(null);
-  const [registering, setRegistering] = useState(false);
+  const [result, setResult] = useState<Match["result"]>(matchParsed.result);
+  const [goals, setGoals] = useState(matchParsed.goals);
+  const [asists, setAsists] = useState(matchParsed.asists);
+  const [shirt, setShirt] = useState<Match["shirt"] | null>(matchParsed.shirt);
+  const [editing, setEditing] = useState(false);
   const { showToast } = useToast();
 
-  const registerMatch = async () => {
-    setRegistering(true);
+  const editMatch = async () => {
+    setEditing(true);
     const db = await getDB();
-    const worldcupMatches: any = await db.getAllAsync<Match>(
+    await db.runAsync(
       `
-      SELECT m.*
-      FROM matches m
-      WHERE m.worldcup_id = (
-        SELECT id
-        FROM worldcup
-        ORDER BY updated_at DESC
-        LIMIT 1
-      ) AND m.stage_id IS NOT NULL
-      ORDER BY m.date DESC
-    `
+      UPDATE matches
+      SET result = ?, goals = ?, asists = ?, shirt = ?
+      WHERE id = ?
+      `,
+      [result, goals, asists, shirt, matchParsed.id]
     );
-    const { id: stage_id } = getNextWorldCupStage(
-      worldcupMatches[0],
-      worldcupMatches
-    );
-    if (stage_id === StageId.GROUP_1) {
-      const worldcupInserted = await db.runAsync(
-        `INSERT INTO worldcup (
-          stage
-          ) VALUES (?)`,
-        [stage_id]
-      );
-      await db.runAsync(
-        `INSERT INTO matches (
-          result, goals, asists, shirt, worldcup_id, stage_id
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          result,
-          goals,
-          asists,
-          shirt,
-          worldcupInserted.lastInsertRowId,
-          stage_id,
-        ]
-      );
-    } else {
-      await db.runAsync(
-        `INSERT INTO matches (
-          result, goals, asists, shirt, worldcup_id, stage_id
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [result, goals, asists, shirt, worldcupMatches[0].worldcup_id, stage_id]
-      );
-      await db.runAsync(
-        `UPDATE worldcup
-          SET stage = ?, updated_at = strftime('%s','now')
-          WHERE id = ?;
-        `,
-        [stage_id, worldcupMatches[0].worldcup_id]
-      );
-    }
-    setRegistering(false);
+
+    setEditing(false);
     showToast("Registrado correctamente");
     router.navigate("/");
   };
@@ -194,7 +155,7 @@ export default function ModalScreen() {
         <Link
           href="/"
           dismissTo
-          disabled={registering}
+          disabled={editing}
           style={styles.secondaryButtonContainer}
         >
           <View style={styles.secondaryButton}>
@@ -204,12 +165,12 @@ export default function ModalScreen() {
         </Link>
 
         <Pressable
-          style={[styles.primaryButton, registering && styles.disabled]}
-          onPress={() => registerMatch()}
-          disabled={registering}
+          style={[styles.primaryButton, editing && styles.disabled]}
+          onPress={() => editMatch()}
+          disabled={editing}
         >
           <Save size={20} color="#fff" />
-          <Text style={styles.primaryButtonText}>Registrar</Text>
+          <Text style={styles.primaryButtonText}>Guardar cambios</Text>
         </Pressable>
       </View>
     </View>

@@ -19,9 +19,13 @@ export default function HomeScreen() {
   const lastMatches = matches.slice(0, 5);
 
   useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
     loadMatches();
     loadActualWorldcup();
-  }, []);
+  };
 
   const loadMatches = async () => {
     const db = await getDB();
@@ -122,7 +126,12 @@ export default function HomeScreen() {
           </ThemedView>
           <ThemedView style={{ width: "100%", gap: 15 }}>
             {matches.slice(0, 5).map((match, index) => (
-              <MatchCard match={match} key={`match-${index}`} />
+              <MatchCard
+                match={match}
+                key={`match-${index}`}
+                editable={index === 0}
+                onChange={loadData}
+              />
             ))}
           </ThemedView>
         </ThemedView>

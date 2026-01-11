@@ -42,6 +42,10 @@ export default function RootLayout() {
             name="modal"
             options={{ presentation: "modal", title: "Registrar partido" }}
           />
+          <Stack.Screen
+            name="edit-match"
+            options={{ presentation: "modal", title: "Editar partido" }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ToastProvider>
